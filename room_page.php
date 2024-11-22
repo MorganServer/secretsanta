@@ -5,18 +5,25 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-$roomCode = $_SESSION['room_code'];
-$userName = $_SESSION['user_name'];
+$roomCode = $_GET['room_code'];
+$_SESSION['room_code'] = $roomCode;
 
-// Get all participants
-$stmt = $conn->prepare("SELECT name FROM participants WHERE room_code = ? ORDER BY turn_order ASC");
+// Fetch participants in the room
+$stmt = $conn->prepare("SELECT name FROM participants WHERE room_code = ? ORDER BY turn_order");
 $stmt->bind_param("s", $roomCode);
 $stmt->execute();
 $result = $stmt->get_result();
+
 $participants = [];
 while ($row = $result->fetch_assoc()) {
-    $participants[] = $row;
+    $participants[] = $row['name'];
 }
+
+// Check if all participants are in the room
+$stmt = $conn->prepare("SELECT COUNT(*) AS total FROM participants WHERE room_code = ?");
+$stmt->bind_param("s", $roomCode);
+$stmt->execute();
+$totalParticipants = $stmt->get_result()->fetch_assoc()['total'];
 ?>
 
 <!DOCTYPE html>
@@ -24,30 +31,26 @@ while ($row = $result->fetch_assoc()) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Room: <?php echo $roomCode; ?></title>
+    <title>Room Page</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="container my-5">
         <h1 class="text-center">Room Code: <?php echo $roomCode; ?></h1>
-
-        <h3>Participants:</h3>
-        <div class="row">
-            <?php foreach ($participants as $participant): ?>
-                <div class="col-md-3 text-center">
-                    <p><?php echo $participant['name']; ?></p>
-                </div>
-            <?php endforeach; ?>
+        <h3 class="text-center">Participants</h3>
+        <div class="d-flex justify-content-center flex-wrap">
+            <?php foreach ($participants as $participant) { ?>
+                <div class="m-2 p-2 border"><?php echo $participant; ?></div>
+            <?php } ?>
         </div>
 
-        <!-- Start the game if all participants are in -->
-        <?php if (count($participants) > 1): ?>
-            <form method="POST" action="start_game.php">
-                <button type="submit" class="btn btn-primary btn-block">Start Game</button>
+        <?php if ($totalParticipants > 1) { ?>
+            <form action="start_game.php" method="POST" class="text-center">
+                <button type="submit" class="btn btn-primary">Start Game</button>
             </form>
-        <?php else: ?>
-            <p>Waiting for more players...</p>
-        <?php endif; ?>
+        <?php } else { ?>
+            <p class="text-center">Waiting for more participants...</p>
+        <?php } ?>
     </div>
 </body>
 </html>

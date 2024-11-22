@@ -18,7 +18,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->close();
     $conn->close();
 
-    echo "Names successfully added to the room!";
+    // Redirect to Room Page
+    header("Location: room_page.php?room_code=" . $roomCode);
+    exit();
 }
 ?>
 
@@ -32,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <h2>Join a Room</h2>
     <form method="POST">
-        <label>Room Code: <input type="text" name="room_code" required></label><br>
+        <label>Room Code: <input type="text" name="room_code" value="<?php echo $_GET['room_code'] ?? ''; ?>" required></label><br>
         <label>Family Group: <input type="text" name="family_group" required></label><br>
         <label>Names (comma-separated): <input type="text" name="names" required></label><br>
         <button type="submit">Join</button>

@@ -19,6 +19,12 @@ while ($row = $result->fetch_assoc()) {
     $participants[] = $row;
 }
 
+// Check if the number of participants is even
+if (count($participants) % 2 !== 0) {
+    echo "<p>Waiting for an even number of participants. Please wait...</p>";
+    exit();
+}
+
 // Get picked participants
 $result = $conn->query("SELECT receiver FROM results WHERE room_code = '$roomCode'");
 $picked = [];
@@ -29,9 +35,9 @@ while ($row = $result->fetch_assoc()) {
 // Get the current player's turn from session
 $currentPlayer = $_SESSION['user_name'] ?? '';
 
-// Get the next person who hasn't picked yet
-$remainingPlayers = array_diff(array_column($participants, 'name'), $picked);
-$nextPlayer = current($remainingPlayers);
+// Store the current turn index in the session (rotating through the participants)
+$turnIndex = $_SESSION['turn_index'] ?? 0;
+$nextPlayer = $participants[$turnIndex]['name'];
 
 // Determine if the current player can pick
 $canPick = $currentPlayer === $nextPlayer;
@@ -52,6 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pick_for_me']) && $ca
     $stmt = $conn->prepare("INSERT INTO results (room_code, giver, receiver) VALUES (?, ?, ?)");
     $stmt->bind_param("sss", $roomCode, $player, $selectedName);
     $stmt->execute();
+
+    // Update the turn index for the next player
+    $_SESSION['turn_index'] = ($turnIndex + 1) % count($participants);
 
     // Redirect to the same page to update the game state
     header("Location: room_page.php?room_code=$roomCode");

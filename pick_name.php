@@ -5,75 +5,54 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-$roomCode = $_GET['room_code'] ?? '';
-if (empty($roomCode)) {
-    die("Room code is required");
-}
+$data = json_decode(file_get_contents('php://input'), true);
+$roomCode = $data['room_code'];
+$userName = $data['user_name'];
 
-// Fetch participants ordered by their turn order
-$stmt = $conn->prepare("SELECT * FROM participants WHERE room_code = ? ORDER BY turn_order ASC");
-$stmt->bind_param("s", $roomCode);
-$stmt->execute();
-$participantsResult = $stmt->get_result();
-$participants = [];
-
-while ($row = $participantsResult->fetch_assoc()) {
-    $participants[] = $row;
-}
-
-// Get current turn from session
-$currentTurnIndex = $_SESSION['turn_index'] ?? 0;
-$currentParticipant = $participants[$currentTurnIndex] ?? null;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $currentParticipant) {
-    // Randomly assign a name for the current participant
-    $availableParticipants = array_filter($participants, function($p) use ($currentParticipant) {
-        return $p['name'] !== $currentParticipant['name'] && $p['picked_name'] === null;
-    });
-
-    if (count($availableParticipants) === 0) {
-        die("No valid names left.");
+// Get all participants in the room, excluding the user
+$result = $conn->query("SELECT id, name, picked_name FROM participants WHERE room_code = '$roomCode' AND name != '$userName' ORDER BY turn_order ASC");
+$availableParticipants = [];
+while ($row = $result->fetch_assoc()) {
+    if (!$row['picked_name']) {
+        $availableParticipants[] = $row; // Only add participants who haven't been picked yet
     }
+}
 
-    $randomIndex = array_rand($availableParticipants);
-    $pickedParticipant = $availableParticipants[$randomIndex];
+// If there are any available participants, pick one at random
+if (count($availableParticipants) > 0) {
+    $randomParticipant = $availableParticipants[array_rand($availableParticipants)];
+    $pickedName = $randomParticipant['name'];
 
-    // Save the picked name
-    $stmt = $conn->prepare("UPDATE participants SET picked_name = ? WHERE id = ?");
-    $stmt->bind_param("si", $pickedParticipant['name'], $currentParticipant['id']);
+    // Update the current user's picked_name
+    $stmt = $conn->prepare("UPDATE participants SET picked_name = ? WHERE name = ?");
+    $stmt->bind_param("ss", $pickedName, $userName);
     $stmt->execute();
 
-    // Move to next participant's turn
-    $_SESSION['turn_index']++;
+    // Update the current turn in the database to the next participant
+    $stmt = $conn->prepare("SELECT turn_order FROM participants WHERE room_code = ? AND name = ?");
+    $stmt->bind_param("ss", $roomCode, $userName);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $currentUserTurn = $result->fetch_assoc()['turn_order'];
 
-    if ($_SESSION['turn_index'] >= count($participants)) {
-        header("Location: results.php?room_code=$roomCode");
-        exit();
-    }
+    // Get the next player
+    $stmt = $conn->prepare("SELECT name FROM participants WHERE room_code = ? AND turn_order = ?");
+    $nextTurn = $currentUserTurn + 1;
+    $stmt->bind_param("si", $roomCode, $nextTurn);
+    $stmt->execute();
+    $nextTurnResult = $stmt->get_result();
+    $nextTurnParticipant = $nextTurnResult->fetch_assoc();
+
+    $nextTurnName = $nextTurnParticipant ? $nextTurnParticipant['name'] : $userName; // if it's the last player, loop back
+
+    // Update the next turn in the rooms table
+    $stmt = $conn->prepare("UPDATE rooms SET current_turn = ? WHERE room_code = ?");
+    $stmt->bind_param("ss", $nextTurnName, $roomCode);
+    $stmt->execute();
+
+    // Return the name that was picked
+    echo json_encode(['picked_name' => $pickedName]);
+} else {
+    echo json_encode(['error' => 'No available participants to pick']);
 }
-
 ?>
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pick a Name</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <div class="container my-5">
-        <h1 class="text-center">Pick a Name</h1>
-        <?php if ($currentParticipant): ?>
-            <h3><?php echo htmlspecialchars($currentParticipant['name']); ?>, choose a name!</h3>
-            <?php if ($_SESSION['turn_index'] == array_search($currentParticipant, $participants)): ?>
-                <form method="POST">
-                    <button type="submit" class="btn btn-primary btn-block">Pick a Name</button>
-                </form>
-            <?php endif; ?>
-        <?php endif; ?>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>

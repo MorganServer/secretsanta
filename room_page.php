@@ -8,19 +8,22 @@ if ($conn->connect_error) {
 $roomCode = $_SESSION['room_code'];
 $userName = $_SESSION['user_name'];
 
-// Get participants in the room
-$result = $conn->query("SELECT name, turn_order FROM participants WHERE room_code = '$roomCode' ORDER BY turn_order ASC");
+// Get participants in the room, ordered by turn_order
+$result = $conn->query("SELECT id, name, picked_name FROM participants WHERE room_code = '$roomCode' ORDER BY turn_order ASC");
 $participants = [];
 while ($row = $result->fetch_assoc()) {
     $participants[] = $row;
 }
 
-// Check if everyone is in the room
-if (count($participants) > 1) {
-    $allJoined = true;
-} else {
-    $allJoined = false;
-}
+// Get the current turn (from session or database)
+$stmt = $conn->prepare("SELECT current_turn FROM rooms WHERE room_code = ?");
+$stmt->bind_param("s", $roomCode);
+$stmt->execute();
+$currentTurnResult = $stmt->get_result();
+$currentTurn = $currentTurnResult->fetch_assoc()['current_turn'];
+
+// Check if the current user is the one whose turn it is
+$isMyTurn = $userName == $currentTurn;
 
 ?>
 
@@ -45,15 +48,46 @@ if (count($participants) > 1) {
             <?php endforeach; ?>
         </div>
 
-        <?php if ($allJoined): ?>
-            <!-- Form to start the game -->
-            <form action="start_game.php" method="POST">
-                <input type="hidden" name="room_code" value="<?php echo $roomCode; ?>">
-                <button type="submit" class="btn btn-primary btn-block">Start Game</button>
-            </form>
+        <!-- Show Pick My Secret Santa Button if it's the user's turn -->
+        <?php if ($isMyTurn): ?>
+            <div class="text-center mt-3">
+                <button id="pickButton" class="btn btn-success">Pick my Secret Santa</button>
+                <p id="pickedName" class="mt-3"></p>
+            </div>
         <?php else: ?>
-            <p class="text-warning">Waiting for more participants...</p>
+            <p class="text-warning">Waiting for <?php echo $currentTurn; ?>'s turn...</p>
         <?php endif; ?>
+        
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // If the button is clicked, make an API call to pick a Secret Santa
+        document.getElementById("pickButton")?.addEventListener("click", function() {
+            fetch('pick_name.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    room_code: '<?php echo $roomCode; ?>',
+                    user_name: '<?php echo $userName; ?>'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Show the name they picked
+                document.getElementById("pickedName").innerText = "You got " + data.picked_name;
+                // Disable the pick button
+                document.getElementById("pickButton").disabled = true;
+
+                // Redirect to the next turn (this can be a page refresh or an automatic update in your case)
+                setTimeout(function() {
+                    location.reload(); // Refresh the page to move to the next turn
+                }, 1000);
+            })
+            .catch(error => console.log('Error picking Secret Santa:', error));
+        });
+    </script>
 </body>
 </html>

@@ -6,21 +6,26 @@ if ($conn->connect_error) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Generate a unique room code (6 characters)
-    $roomCode = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
-    $roomCreator = $_POST['name'];
+    $creatorName = $_POST['creator_name'];
+    $roomCode = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6); // Generate random room code
 
-    // Insert the room into the database
-    $stmt = $conn->prepare("INSERT INTO rooms (room_code, current_turn) VALUES (?, ?)");
-    $stmt->bind_param("ss", $roomCode, $roomCreator);
-    $stmt->execute();
+    // Create the room
+    $stmt = $conn->prepare("INSERT INTO rooms (room_code) VALUES (?)");
+    $stmt->bind_param("s", $roomCode);
+    if ($stmt->execute()) {
+        // Insert the creator as the first participant
+        $stmt = $conn->prepare("INSERT INTO participants (room_code, name, turn_order) VALUES (?, ?, ?)");
+        $stmt->bind_param("ssi", $roomCode, $creatorName, 1); // creator gets the turn order 1
+        $stmt->execute();
 
-    // Store room code and room creator name in session
-    $_SESSION['room_code'] = $roomCode;
-    $_SESSION['user_name'] = $roomCreator;
+        $_SESSION['room_code'] = $roomCode;
+        $_SESSION['user_name'] = $creatorName;
 
-    header("Location: room_page.php?room_code=$roomCode");
-    exit();
+        header("Location: room_page.php?room_code=$roomCode");
+        exit();
+    } else {
+        echo "Error creating room!";
+    }
 }
 ?>
 
@@ -37,10 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h1 class="text-center">Create a Secret Santa Room</h1>
         <form method="POST" action="create_room.php">
             <div class="mb-3">
-                <label for="name" class="form-label">Your Name</label>
-                <input type="text" id="name" name="name" class="form-control" required>
+                <label for="creator_name" class="form-label">Your Name</label>
+                <input type="text" id="creator_name" name="creator_name" class="form-control" required>
             </div>
-            <button type="submit" class="btn btn-primary btn-block">Create Room</button>
+            <button type="submit" class="btn btn-success btn-block">Create Room</button>
         </form>
     </div>
 </body>

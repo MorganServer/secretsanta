@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $result = $stmt->get_result();
 
     if ($result->num_rows > 0) {
-        // Get the number of participants in the room to assign a turn order
+        // Get the number of participants to set the next available turn_order
         $stmt = $conn->prepare("SELECT COUNT(*) AS participant_count FROM participants WHERE room_code = ?");
         $stmt->bind_param("s", $roomCode);
         $stmt->execute();

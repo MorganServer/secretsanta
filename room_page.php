@@ -14,6 +14,7 @@ if (empty($roomCode)) {
 
 // Get participants
 $result = $conn->query("SELECT * FROM participants WHERE room_code = '$roomCode'");
+
 if (!$result) {
     die("Error retrieving participants: " . $conn->error);
 }
@@ -37,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isCreator) {
     foreach ($order as $index => $name) {
         $stmt = $conn->prepare("UPDATE participants SET turn_order = ? WHERE room_code = ? AND name = ?");
         $stmt->bind_param("iss", $index, $roomCode, $name);
+
         if (!$stmt->execute()) {
             die("Error updating turn order: " . $stmt->error);
         }

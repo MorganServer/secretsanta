@@ -14,25 +14,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Create the room
     $stmt = $conn->prepare("INSERT INTO rooms (room_code, created_at) VALUES (?, NOW())");
-    if (!$stmt) {
-        die("Room creation statement failed: " . $conn->error);
-    }
     $stmt->bind_param("s", $roomCode);
-    if (!$stmt->execute()) {
-        die("Room creation failed: " . $stmt->error);
-    }
+    $stmt->execute();
 
     // Auto-join the creator
     $stmt = $conn->prepare("INSERT INTO participants (room_code, name, family_group) VALUES (?, ?, ?)");
-    if (!$stmt) {
-        die("Participant statement failed: " . $conn->error);
-    }
-    $stmt->bind_param("sss", $roomCode, $creatorName, $creatorName);
-    if (!$stmt->execute()) {
-        die("Participant creation failed: " . $stmt->error);
-    }
+    $stmt->bind_param("sss", $roomCode, $creatorName, $creatorName); // Creator's name is their family group
+    $stmt->execute();
 
-    // Redirect to the room page
     header("Location: room_page.php?room_code=$roomCode");
     exit();
 }

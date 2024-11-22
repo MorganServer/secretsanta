@@ -14,6 +14,10 @@ if (empty($roomCode)) {
 
 // Get participants
 $result = $conn->query("SELECT * FROM participants WHERE room_code = '$roomCode'");
+if (!$result) {
+    die("Error retrieving participants: " . $conn->error);
+}
+
 $participants = [];
 while ($row = $result->fetch_assoc()) {
     $participants[] = $row;
@@ -24,20 +28,27 @@ $creatorName = $_SESSION['user_name'] ?? '';
 $isCreator = $participants[0]['name'] === $creatorName;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isCreator) {
-    // Update the order of participants
-    $order = $_POST['order'];
+    // Reorder participants
+    $order = $_POST['order'] ?? [];
+    if (empty($order)) {
+        die("No order provided for reordering participants.");
+    }
+
     foreach ($order as $index => $name) {
         $stmt = $conn->prepare("UPDATE participants SET turn_order = ? WHERE room_code = ? AND name = ?");
         $stmt->bind_param("iss", $index, $roomCode, $name);
-        $stmt->execute();
+        if (!$stmt->execute()) {
+            die("Error updating turn order: " . $stmt->error);
+        }
     }
 
-    // Start the game (initial turn order in session)
+    // Start the game by setting the first turn index
     $_SESSION['turn_index'] = 0;
+
+    // Redirect to the pick_name page
     header("Location: pick_name.php?room_code=$roomCode");
     exit();
 }
-
 ?>
 
 <!DOCTYPE html>

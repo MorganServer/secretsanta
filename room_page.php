@@ -2,10 +2,25 @@
 include 'db.php';
 
 $room_code = $_GET['room_code'];
+
+// Store the participant's name in session (when joining)
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $_SESSION['name'] = $_POST['name']; // Set participant name in session
+}
+
 $stmt = $pdo->prepare("SELECT * FROM participants WHERE room_code = :room_code");
 $stmt->execute(['room_code' => $room_code]);
 $participants = $stmt->fetchAll();
 
+// Check if all participants have joined
+$all_joined = count($participants) > 1;
+
+$participant_names = array_column($participants, 'name');
+
+// Check if the current user is one of the participants and set session variable
+if (!isset($_SESSION['name'])) {
+    $_SESSION['name'] = ''; // If not set, default it
+}
 ?>
 
 <!DOCTYPE html>
@@ -18,7 +33,7 @@ $participants = $stmt->fetchAll();
     <script>
         setInterval(function() {
             location.reload();
-        }, 3000); // Refresh every 3 seconds
+        }, 3000); // Refresh every 3 seconds to get real-time updates
     </script>
 </head>
 <body>
@@ -30,7 +45,18 @@ $participants = $stmt->fetchAll();
                 <li class="list-group-item"><?= $participant['name'] ?></li>
             <?php endforeach; ?>
         </ul>
-        <a href="join_room.php" class="btn btn-secondary mt-3">Join Another Room</a>
+
+        <?php if ($all_joined): ?>
+            <h4>All participants have joined. Ready to start the selection!</h4>
+            <?php if ($_SESSION['name']): ?>
+                <!-- Only show "Pick Selection" for the current user -->
+                <form method="POST" action="pick_name.php">
+                    <button type="submit" class="btn btn-success mt-3">Pick Selection</button>
+                </form>
+            <?php endif; ?>
+        <?php else: ?>
+            <p>Waiting for more participants to join...</p>
+        <?php endif; ?>
     </div>
 </body>
 </html>

@@ -1,4 +1,6 @@
 <?php
+session_start();
+
 $host = 'localhost';
 $db = 'secretsanta'; // Replace with your database name
 $user = 'dbadmin'; // Replace with your database username

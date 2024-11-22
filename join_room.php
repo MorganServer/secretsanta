@@ -1,14 +1,20 @@
 <?php
 session_start();
 
+// Database connection
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $roomCode = $_POST['room_code'];
     $name = $_POST['name'];
+
+    // Debugging: Output room code and name to check if they are received correctly
+    echo "Room Code: $roomCode<br>";
+    echo "Name: $name<br>";
 
     // Check if the room exists
     $stmt = $conn->prepare("SELECT * FROM rooms WHERE room_code = ?");
@@ -16,11 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute();
     $result = $stmt->get_result();
 
+    // Debugging: Check if the room exists
     if ($result->num_rows == 0) {
         // Room doesn't exist
         $error = "Room code not found. Please check the code and try again.";
     } else {
-        // Join the room
+        // Room exists, proceed with joining the room
         $stmt = $conn->prepare("INSERT INTO participants (room_code, name, family_group) VALUES (?, ?, ?)");
         $stmt->bind_param("sss", $roomCode, $name, $name); // Assume each person is their own family group
         if ($stmt->execute()) {

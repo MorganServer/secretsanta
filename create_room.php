@@ -1,15 +1,18 @@
 <?php
 include 'db.php';
 
-if (isset($_POST['create_room'])) {
-    $room_name = $_POST['room_name'];
-    $max_participants = $_POST['max_participants'];
-
-    $stmt = $pdo->prepare("INSERT INTO rooms (room_name, max_participants) VALUES (?, ?)");
-    $stmt->execute([$room_name, $max_participants]);
-    header("Location: join_room.php?room_id=" . $pdo->lastInsertId());
+function generateRoomCode() {
+    return strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
 }
 
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $room_code = generateRoomCode();
+    $stmt = $pdo->prepare("INSERT INTO rooms (room_code) VALUES (:room_code)");
+    $stmt->execute(['room_code' => $room_code]);
+
+    header("Location: room_page.php?room_code=$room_code");
+    exit();
+}
 ?>
 
 <!DOCTYPE html>
@@ -21,18 +24,10 @@ if (isset($_POST['create_room'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-5">
-        <h2>Create a Secret Santa Room</h2>
+    <div class="container">
+        <h1>Create Secret Santa Room</h1>
         <form method="POST">
-            <div class="mb-3">
-                <label for="room_name" class="form-label">Room Name</label>
-                <input type="text" class="form-control" id="room_name" name="room_name" required>
-            </div>
-            <div class="mb-3">
-                <label for="max_participants" class="form-label">Max Participants</label>
-                <input type="number" class="form-control" id="max_participants" name="max_participants" required>
-            </div>
-            <button type="submit" name="create_room" class="btn btn-primary">Create Room</button>
+            <button type="submit" class="btn btn-primary">Create Room</button>
         </form>
     </div>
 </body>

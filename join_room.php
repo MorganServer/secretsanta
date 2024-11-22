@@ -25,12 +25,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Debugging: Check if the room exists
     if ($result->num_rows == 0) {
         // Room doesn't exist
+        echo "Room code not found in the database.<br>";
         $error = "Room code not found. Please check the code and try again.";
     } else {
         // Room exists, proceed with joining the room
-        $stmt = $conn->prepare("INSERT INTO participants (room_code, name, family_group) VALUES (?, ?, ?)");
-        $stmt->bind_param("sss", $roomCode, $name, $name); // Assume each person is their own family group
+        echo "Room found, now inserting participant.<br>";
+
+        // Insert participant into the participants table with NULL for picked_name and turn_order
+        $stmt = $conn->prepare("INSERT INTO participants (room_code, name, picked_name, turn_order) VALUES (?, ?, NULL, NULL)");
+        $stmt->bind_param("ss", $roomCode, $name);
+
         if ($stmt->execute()) {
+            echo "Participant inserted successfully.<br>";
             $_SESSION['user_name'] = $name;
             $_SESSION['room_code'] = $roomCode;
 
@@ -38,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: room_page.php?room_code=$roomCode");
             exit();
         } else {
+            echo "Error inserting participant: " . $stmt->error . "<br>";
             $error = "An error occurred while joining the room. Please try again.";
         }
     }

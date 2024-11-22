@@ -9,8 +9,8 @@ $stmt = $pdo->prepare("SELECT * FROM participants WHERE room_code = :room_code")
 $stmt->execute(['room_code' => $room_code]);
 $participants = $stmt->fetchAll();
 
-// Check if all participants have joined
-$all_joined = count($participants) > 1; // If more than 1 participant, assume everyone has joined
+// Check if all participants have joined (assuming at least 2 participants for the game to start)
+$all_joined = count($participants) > 1; // This can be adjusted based on your room size requirement
 
 // Store participant names for the session and check if current user is logged in
 $participant_names = array_column($participants, 'name');

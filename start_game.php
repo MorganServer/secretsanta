@@ -43,7 +43,7 @@ foreach ($participants as $key => $participant) {
     $stmt->execute(['assigned_to' => $assigned_to, 'id' => $participant['id']]);
 }
 
-// Redirect participants to the page where they can pick a name (if not yet selected)
-header("Location: pick_name.php?room_code=$room_code");
+// Redirect to the results page where the assignments will be displayed
+header("Location: results.php?room_code=$room_code");
 exit();
 ?>

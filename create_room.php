@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $name = $_POST['name'];
     $room_code = strtoupper(bin2hex(random_bytes(3))); // Random 6-character code
 
-    // Insert the room and creator into the participants table
+    // Insert the room and creator into the participants table (creator is admin)
     $stmt = $pdo->prepare("INSERT INTO participants (name, room_code, status) VALUES (:name, :room_code, 'admin')");
     $stmt->execute(['name' => $name, 'room_code' => $room_code]);
 

@@ -1,76 +1,91 @@
 <?php
-header('Content-Type: application/json');
+session_start();
 
-// Get the incoming JSON data
-$data = json_decode(file_get_contents('php://input'), true);
-
-// Validate input
-if (!isset($data['room_code'], $data['player'])) {
-    echo json_encode(['error' => 'Invalid input data']);
-    exit();
-}
-
-$roomCode = $data['room_code'];
-$player = $data['player'];
-
-// Database connection
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
-    echo json_encode(['error' => 'Database connection failed: ' . $conn->connect_error]);
-    exit();
+    die("Connection failed: " . $conn->connect_error);
 }
 
-// Get all names and family groups for the room
+$roomCode = $_GET['room_code'] ?? '';
+$currentPlayer = $_SESSION['user_name'] ?? '';
+
+if (empty($roomCode) || empty($currentPlayer)) {
+    die("Room code and player are required");
+}
+
+// Get participants
+$result = $conn->query("SELECT * FROM participants WHERE room_code = '$roomCode' ORDER BY turn_order ASC");
 $participants = [];
-$result = $conn->query("SELECT name, family_group FROM participants WHERE room_code = '$roomCode'");
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $participants[$row['name']] = $row['family_group'];
+while ($row = $result->fetch_assoc()) {
+    $participants[] = $row;
+}
+
+// Get the current player's turn from session
+$turnIndex = $_SESSION['turn_index'] ?? 0;
+$nextPlayer = $participants[$turnIndex]['name'];
+
+// Check if it's the current player's turn
+$canPick = $currentPlayer === $nextPlayer;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canPick) {
+    // Pick a random name (excluding self and already picked)
+    $picked = $_POST['picked'] ?? [];
+    $validNames = array_diff(array_column($participants, 'name'), $picked, [$currentPlayer]);
+
+    if (empty($validNames)) {
+        die("No valid names left.");
     }
-} else {
-    echo json_encode(['error' => 'Failed to fetch participants']);
-    exit();
-}
 
-// Get already picked names for the room
-$picked = [];
-$result = $conn->query("SELECT receiver FROM results WHERE room_code = '$roomCode'");
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $picked[] = $row['receiver'];
-    }
-} else {
-    echo json_encode(['error' => 'Failed to fetch picked names']);
-    exit();
-}
+    $selectedName = $validNames[array_rand($validNames)];
 
-// Filter out invalid names
-$validNames = array_diff(array_keys($participants), $picked);
-$validNames = array_filter($validNames, function ($name) use ($participants, $player) {
-    return $participants[$name] !== $participants[$player]; // Exclude same family group
-});
-
-// Check if there are valid names left
-if (empty($validNames)) {
-    echo json_encode(['error' => 'No valid names left for the player']);
-    exit();
-}
-
-// Pick a random name
-$selectedName = $validNames[array_rand($validNames)];
-
-// Save the pairing in the database
-$stmt = $conn->prepare("INSERT INTO results (room_code, giver, receiver) VALUES (?, ?, ?)");
-if ($stmt) {
-    $stmt->bind_param("sss", $roomCode, $player, $selectedName);
+    // Save the result
+    $stmt = $conn->prepare("INSERT INTO results (room_code, giver, receiver) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $roomCode, $currentPlayer, $selectedName);
     $stmt->execute();
-    $stmt->close();
-} else {
-    echo json_encode(['error' => 'Failed to save the pairing']);
+
+    // Update turn index for the next player
+    $_SESSION['turn_index'] = ($turnIndex + 1) % count($participants);
+
+    // Redirect to the same page to update the game state
+    header("Location: pick_name.php?room_code=$roomCode");
     exit();
 }
 
-// Return the selected name
-echo json_encode(['name' => $selectedName]);
-$conn->close();
 ?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pick a Name</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Pick a Name</h1>
+
+        <h2>It's <?php echo htmlspecialchars($nextPlayer); ?>'s turn!</h2>
+
+        <?php if ($canPick): ?>
+            <form method="POST">
+                <button type="submit" name="pick_for_me">Pick for Me</button>
+            </form>
+        <?php else: ?>
+            <p>Wait for your turn!</p>
+        <?php endif; ?>
+
+        <div id="picked-names">
+            <h3>Picked Names:</h3>
+            <ul>
+                <?php
+                $result = $conn->query("SELECT * FROM results WHERE room_code = '$roomCode'");
+                while ($row = $result->fetch_assoc()):
+                ?>
+                    <li><?php echo htmlspecialchars($row['giver']); ?> picked <?php echo htmlspecialchars($row['receiver']); ?></li>
+                <?php endwhile; ?>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

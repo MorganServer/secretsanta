@@ -9,22 +9,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $creatorName = $_POST['creator_name'];
     $roomCode = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6); // Generate random room code
 
-    // Create the room
-    $stmt = $conn->prepare("INSERT INTO rooms (room_code) VALUES (?)");
-    $stmt->bind_param("s", $roomCode);
-    if ($stmt->execute()) {
-        // Insert the creator as the first participant
+    // Start a transaction to ensure both room creation and participant insertion happen atomically
+    $conn->begin_transaction();
+
+    try {
+        // Step 1: Create the room
+        $stmt = $conn->prepare("INSERT INTO rooms (room_code) VALUES (?)");
+        $stmt->bind_param("s", $roomCode);
+        $stmt->execute(); // Room creation
+
+        // Step 2: Insert the first participant (the creator) into the participants table
         $stmt = $conn->prepare("INSERT INTO participants (room_code, name, turn_order) VALUES (?, ?, ?)");
-        $stmt->bind_param("ssi", $roomCode, $creatorName, 1); // creator gets the turn order 1
-        $stmt->execute();
+        $stmt->bind_param("ssi", $roomCode, $creatorName, 1); // Creator gets the turn order 1
+        $stmt->execute(); // Participant insertion
+
+        // Commit the transaction
+        $conn->commit();
 
         $_SESSION['room_code'] = $roomCode;
         $_SESSION['user_name'] = $creatorName;
 
+        // Redirect to the room page
         header("Location: room_page.php?room_code=$roomCode");
         exit();
-    } else {
-        echo "Error creating room!";
+    } catch (Exception $e) {
+        // If an error occurs, roll back the transaction
+        $conn->rollback();
+        echo "Error: " . $e->getMessage();
     }
 }
 ?>

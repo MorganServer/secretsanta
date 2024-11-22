@@ -1,4 +1,5 @@
 <?php
+session_start();
 include 'db.php';
 
 $room_code = $_GET['room_code'];
@@ -8,21 +9,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $_SESSION['name'] = $_POST['name']; // Set participant name in session
 }
 
+// Fetch the participants for this room
 $stmt = $pdo->prepare("SELECT * FROM participants WHERE room_code = :room_code");
 $stmt->execute(['room_code' => $room_code]);
 $participants = $stmt->fetchAll();
 
 // Check if all participants have joined
-$all_joined = count($participants) > 1;
+$all_joined = count($participants) > 1; // If more than 1 participant, assume everyone has joined
 
+// Store participant names for the session and check if current user is logged in
 $participant_names = array_column($participants, 'name');
 
-// Check if the current user is one of the participants and set session variable
 if (!isset($_SESSION['name'])) {
-    $_SESSION['name'] = ''; // If not set, default it
+    $_SESSION['name'] = ''; // Default if not set
 }
 
-// Check if the current user is an admin
+// Check if the current user is the admin
 $is_admin = false;
 foreach ($participants as $participant) {
     if ($participant['name'] == $_SESSION['name'] && $participant['status'] == 'admin') {
@@ -40,9 +42,10 @@ foreach ($participants as $participant) {
     <title>Room <?= $room_code ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <script>
+        // Auto-refresh every 3 seconds to show updated participants in real time
         setInterval(function() {
             location.reload();
-        }, 3000); // Refresh every 3 seconds to get real-time updates
+        }, 3000);
     </script>
 </head>
 <body>
@@ -57,12 +60,14 @@ foreach ($participants as $participant) {
 
         <?php if ($all_joined): ?>
             <h4>All participants have joined. Ready to start the selection!</h4>
+            
+            <!-- Only show the "Start Selection" button for the admin -->
             <?php if ($is_admin): ?>
-                <!-- Only show the "Start Selection" button for the admin -->
-                <form method="POST" action="start_game.php">
+                <form method="POST" action="start_game.php?room_code=<?= $room_code ?>">
                     <button type="submit" class="btn btn-success mt-3">Start Selection</button>
                 </form>
             <?php endif; ?>
+
         <?php else: ?>
             <p>Waiting for more participants to join...</p>
         <?php endif; ?>

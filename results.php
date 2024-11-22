@@ -6,12 +6,14 @@ if ($conn->connect_error) {
 }
 
 $roomCode = $_SESSION['room_code'];
-$result = $conn->query("SELECT name, picked_name FROM participants WHERE room_code = '$roomCode'");
 
+// Get all participants and their picks
+$result = $conn->query("SELECT name, picked_name FROM participants WHERE room_code = '$roomCode'");
 $participants = [];
 while ($row = $result->fetch_assoc()) {
     $participants[] = $row;
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -26,22 +28,16 @@ while ($row = $result->fetch_assoc()) {
     <div class="container my-5">
         <h1 class="text-center">Secret Santa Results</h1>
 
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Picked Name</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($participants as $participant): ?>
-                    <tr>
-                        <td><?php echo $participant['name']; ?></td>
-                        <td><?php echo $participant['picked_name']; ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+        <div class="row">
+            <?php foreach ($participants as $participant): ?>
+                <div class="col-md-4 text-center">
+                    <h3><?php echo $participant['name']; ?></h3>
+                    <p>Picked: <?php echo $participant['picked_name']; ?></p>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <a href="room_page.php?room_code=<?php echo $roomCode; ?>" class="btn btn-primary btn-block mt-4">Back to Room</a>
     </div>
 </body>
 </html>

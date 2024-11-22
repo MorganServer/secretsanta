@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
@@ -7,22 +10,38 @@ if ($conn->connect_error) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $roomCode = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6);
+    // Get the creator's name from the form
     $creatorName = $_POST['creator_name'];
 
-    // Create the room
+    // Generate a random room code
+    $roomCode = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6);
+
+    // Insert the room into the database
     $stmt = $conn->prepare("INSERT INTO rooms (room_code, created_at) VALUES (?, NOW())");
+    if ($stmt === false) {
+        die("Error preparing query: " . $conn->error);
+    }
     $stmt->bind_param("s", $roomCode);
-    $stmt->execute();
 
-    // Auto-join the creator
-    $stmt = $conn->prepare("INSERT INTO participants (room_code, name, family_group) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $roomCode, $creatorName, $creatorName); // Creator's name is their family group
-    $stmt->execute();
+    // Check if the room was created successfully
+    if (!$stmt->execute()) {
+        die("Error executing query: " . $stmt->error);
+    }
 
-    $_SESSION['user_name'] = $creatorName;
-    $_SESSION['room_code'] = $roomCode;
+    // Auto-join the creator into the room
+    $stmt = $conn->prepare("INSERT INTO participants (room_code, name, turn_order) VALUES (?, ?, ?)");
+    if ($stmt === false) {
+        die("Error preparing query: " . $conn->error);
+    }
+    $turnOrder = 1; // Creator is the first participant
+    $stmt->bind_param("ssi", $roomCode, $creatorName, $turnOrder);
 
+    // Check if the creator was added successfully
+    if (!$stmt->execute()) {
+        die("Error executing query: " . $stmt->error);
+    }
+
+    // Redirect to the room page after successful creation
     header("Location: room_page.php?room_code=$roomCode");
     exit();
 }
@@ -34,19 +53,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Room</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f4f4f9;
+            padding-top: 50px;
+        }
+        .container {
+            max-width: 500px;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
-    <div class="container my-5">
-        <h1 class="text-center">Create a Secret Santa Room</h1>
-        <form method="POST" action="create_room.php">
-            <div class="mb-3">
-                <label for="creator_name" class="form-label">Your Name</label>
-                <input type="text" id="creator_name" name="creator_name" class="form-control" required>
-            </div>
-            <button type="submit" class="btn btn-primary btn-block">Create Room</button>
-        </form>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<div class="container">
+    <h2>Create a Secret Santa Room</h2>
+    <form method="POST">
+        <div class="form-group">
+            <label for="creator_name">Your Name:</label>
+            <input type="text" class="form-control" id="creator_name" name="creator_name" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Room</button>
+    </form>
+</div>
+
 </body>
 </html>

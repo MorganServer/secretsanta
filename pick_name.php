@@ -6,7 +6,6 @@ if ($conn->connect_error) {
 }
 
 $roomCode = $_GET['room_code'] ?? '';
-
 if (empty($roomCode)) {
     die("Room code is required");
 }
@@ -22,7 +21,7 @@ while ($row = $participantsResult->fetch_assoc()) {
     $participants[] = $row;
 }
 
-// Check if it's the current user's turn
+// Get current turn from session
 $currentTurnIndex = $_SESSION['turn_index'] ?? 0;
 $currentParticipant = $participants[$currentTurnIndex] ?? null;
 
@@ -32,9 +31,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $currentParticipant) {
         return $p['name'] !== $currentParticipant['name'] && $p['picked_name'] === null;
     });
 
+    if (count($availableParticipants) === 0) {
+        die("No valid names left.");
+    }
+
     $randomIndex = array_rand($availableParticipants);
     $pickedParticipant = $availableParticipants[$randomIndex];
 
+    // Save the picked name
     $stmt = $conn->prepare("UPDATE participants SET picked_name = ? WHERE id = ?");
     $stmt->bind_param("si", $pickedParticipant['name'], $currentParticipant['id']);
     $stmt->execute();
@@ -63,9 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $currentParticipant) {
         <h1 class="text-center">Pick a Name</h1>
         <?php if ($currentParticipant): ?>
             <h3><?php echo htmlspecialchars($currentParticipant['name']); ?>, choose a name!</h3>
-            <form method="POST">
-                <button type="submit" class="btn btn-primary btn-block">Pick a Name</button>
-            </form>
+            <?php if ($_SESSION['turn_index'] == array_search($currentParticipant, $participants)): ?>
+                <form method="POST">
+                    <button type="submit" class="btn btn-primary btn-block">Pick a Name</button>
+                </form>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -16,9 +16,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $result = $stmt->get_result();
 
     if ($result->num_rows > 0) {
-        // Join the room
+        // Get the number of participants in the room to assign a turn order
+        $stmt = $conn->prepare("SELECT COUNT(*) AS participant_count FROM participants WHERE room_code = ?");
+        $stmt->bind_param("s", $roomCode);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $participantCount = $result->fetch_assoc()['participant_count'];
+
+        // Insert the participant into the database with the next available turn order
         $stmt = $conn->prepare("INSERT INTO participants (room_code, name, turn_order) VALUES (?, ?, ?)");
-        $stmt->bind_param("ssi", $roomCode, $name, $turnOrder);
+        $stmt->bind_param("ssi", $roomCode, $name, $participantCount + 1);
         $stmt->execute();
 
         $_SESSION['room_code'] = $roomCode;

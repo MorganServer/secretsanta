@@ -1,49 +1,71 @@
 <?php
-session_start(); // Start the session to store session variables like current_turn
-
 header('Content-Type: application/json');
 
+// Database connection
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
     echo json_encode(['error' => 'Database connection failed']);
     exit();
 }
 
-// Get the raw POST data
+// Get the room code from the POST data
 $data = json_decode(file_get_contents('php://input'), true);
-
-// Get room code from the request
 $roomCode = $data['room_code'];
 
-// Validate the room code to prevent SQL injection
-if (!$roomCode) {
-    echo json_encode(['error' => 'Room code is required']);
+// Check if there is an even number of participants
+$result = $conn->query("SELECT COUNT(*) AS participant_count FROM participants WHERE room_code = '$roomCode'");
+$participantCount = $result->fetch_assoc()['participant_count'];
+
+if ($participantCount % 2 != 0) {
+    echo json_encode(['error' => 'There must be an even number of participants to start the game.']);
     exit();
 }
 
-// Fetch the first participant based on the room code
-$stmt = $conn->prepare("SELECT name FROM participants WHERE room_code = ? ORDER BY turn_order LIMIT 1");
-$stmt->bind_param("s", $roomCode);
-$stmt->execute();
-$result = $stmt->get_result();
+// Get the list of participants in the desired order
+$participantsResult = $conn->query("SELECT id, name FROM participants WHERE room_code = '$roomCode' ORDER BY turn_order ASC");
+$participants = [];
 
-// Check if there are any participants
-if ($result->num_rows > 0) {
-    // Get the first participant's name
-    $firstParticipant = $result->fetch_assoc()['name'];
-
-    // Set the first participant as the current turn in the rooms table
-    $updateStmt = $conn->prepare("UPDATE rooms SET current_turn = ? WHERE room_code = ?");
-    $updateStmt->bind_param("ss", $firstParticipant, $roomCode);
-    $updateStmt->execute();
-
-    // Store the current turn in the session
-    $_SESSION['current_turn'] = $firstParticipant;
-
-    // Respond with the first participant's name
-    echo json_encode(['current_turn' => $firstParticipant]);
-} else {
-    // No participants found for the given room code
-    echo json_encode(['error' => 'No participants found for this room']);
+while ($row = $participantsResult->fetch_assoc()) {
+    $participants[] = $row;
 }
+
+// Shuffle the list of participants to randomize the pairing
+shuffle($participants);
+
+// Prepare the list of names to assign randomly
+$namesToPick = array_map(function ($participant) {
+    return $participant['name'];
+}, $participants);
+
+// Assign names to each participant, making sure no one picks themselves
+$pickAssignments = [];
+foreach ($participants as $index => $participant) {
+    // Get the list of names left for picking (excluding the current participant's name)
+    $namesLeft = array_diff($namesToPick, [$participant['name']]);
+
+    // Randomly pick a name from the remaining names
+    $pickedName = $namesLeft[array_rand($namesLeft)];
+
+    // Store the pick assignment
+    $pickAssignments[$participant['id']] = $pickedName;
+
+    // Remove the picked name from the list to ensure no one is picked twice
+    $namesToPick = array_diff($namesToPick, [$pickedName]);
+}
+
+// Update the database with the pick assignments
+foreach ($pickAssignments as $participantId => $pickedName) {
+    $stmt = $conn->prepare("UPDATE participants SET picked_name = ? WHERE id = ?");
+    $stmt->bind_param("si", $pickedName, $participantId);
+    $stmt->execute();
+}
+
+// Set the current turn to the first participant
+$firstParticipant = $participants[0]['name'];
+$stmt = $conn->prepare("UPDATE rooms SET current_turn = ? WHERE room_code = ?");
+$stmt->bind_param("ss", $firstParticipant, $roomCode);
+$stmt->execute();
+
+// Respond with success and the name of the first participant
+echo json_encode(['current_turn' => $firstParticipant, 'pick_assignments' => $pickAssignments]);
 ?>

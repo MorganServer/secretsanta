@@ -1,5 +1,6 @@
 <?php
 header('Content-Type: application/json');
+
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
     echo json_encode(['error' => 'Database connection failed']);

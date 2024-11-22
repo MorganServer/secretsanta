@@ -1,7 +1,5 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+session_start();
 
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
@@ -22,10 +20,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("sss", $roomCode, $creatorName, $creatorName); // Creator's name is their family group
     $stmt->execute();
 
+    // Store user session
+    $_SESSION['user_name'] = $creatorName;
+
     header("Location: room_page.php?room_code=$roomCode");
     exit();
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

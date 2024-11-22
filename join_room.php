@@ -1,28 +1,28 @@
 <?php
+session_start();
+
+$conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $roomCode = $_POST['room_code'];
-    $familyGroup = $_POST['family_group'];
-    $names = explode(",", $_POST['names']); // Names entered as a comma-separated list
+    $name = $_POST['name'];
 
-    $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
-    if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
-    }
+    // Join the room
+    $stmt = $conn->prepare("INSERT INTO participants (room_code, name, family_group) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $roomCode, $name, $name); // Assume each person is their own family group
+    $stmt->execute();
 
-    foreach ($names as $name) {
-        $stmt = $conn->prepare("INSERT INTO participants (room_code, family_group, name) VALUES (?, ?, ?)");
-        $stmt->bind_param("sss", $roomCode, $familyGroup, trim($name));
-        $stmt->execute();
-    }
+    // Store user session
+    $_SESSION['user_name'] = $name;
 
-    $stmt->close();
-    $conn->close();
-
-    // Redirect to Room Page
-    header("Location: room_page.php?room_code=" . $roomCode);
+    header("Location: room_page.php?room_code=$roomCode");
     exit();
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

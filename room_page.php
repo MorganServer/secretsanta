@@ -31,15 +31,23 @@ while ($row = $result->fetch_assoc()) {
         }
 
         function pickName() {
-            let playerName = names[currentIndex];
-            fetch('pick_name.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_code: '<?php echo $roomCode; ?>', player: playerName }),
-            })
-            .then(response => response.json())
-            .then(data => {
+    let playerName = document.getElementById('current-player').innerText;
+
+    fetch('pick_name.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            room_code: '<?php echo $roomCode; ?>',
+            player: playerName,
+        }),
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert("Error: " + data.error);
+            } else {
                 alert(playerName + " picked: " + data.name);
+                // Proceed to the next player
                 currentIndex++;
                 if (currentIndex < names.length) {
                     document.getElementById('current-player').innerText = names[currentIndex];
@@ -47,8 +55,14 @@ while ($row = $result->fetch_assoc()) {
                     alert("Game finished! Check final results.");
                     location.href = 'results.php?room_code=<?php echo $roomCode; ?>';
                 }
-            });
-        }
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert("An error occurred. Please try again.");
+        });
+}
+
     </script>
 </head>
 <body>

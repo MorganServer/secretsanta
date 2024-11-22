@@ -4,7 +4,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $maxParticipants = intval($_POST['max_participants']);
     $roomCode = substr(md5(uniqid(rand(), true)), 0, 6);
 
-    $conn = new mysqli('localhost', 'root', '', 'secret_santa');
+    $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
     if ($conn->connect_error) {
         die("Connection failed: " . $conn->connect_error);
     }

@@ -1,7 +1,7 @@
 <?php
 $roomCode = $_GET['room_code'];
 
-$conn = new mysqli('localhost', 'root', '', 'secret_santa');
+$conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }

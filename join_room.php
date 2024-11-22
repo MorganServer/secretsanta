@@ -4,7 +4,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $familyGroup = $_POST['family_group'];
     $names = explode(",", $_POST['names']); // Names entered as a comma-separated list
 
-    $conn = new mysqli('localhost', 'root', '', 'secret_santa');
+    $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
     if ($conn->connect_error) {
         die("Connection failed: " . $conn->connect_error);
     }

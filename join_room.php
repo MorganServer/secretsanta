@@ -23,13 +23,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Join the room
         $stmt = $conn->prepare("INSERT INTO participants (room_code, name, family_group) VALUES (?, ?, ?)");
         $stmt->bind_param("sss", $roomCode, $name, $name); // Assume each person is their own family group
-        $stmt->execute();
+        if ($stmt->execute()) {
+            $_SESSION['user_name'] = $name;
+            $_SESSION['room_code'] = $roomCode;
 
-        $_SESSION['user_name'] = $name;
-        $_SESSION['room_code'] = $roomCode;
-
-        header("Location: room_page.php?room_code=$roomCode");
-        exit();
+            // Redirect to the room page
+            header("Location: room_page.php?room_code=$roomCode");
+            exit();
+        } else {
+            $error = "An error occurred while joining the room. Please try again.";
+        }
     }
 }
 ?>

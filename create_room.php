@@ -10,6 +10,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt = $pdo->prepare("INSERT INTO rooms (room_code) VALUES (:room_code)");
     $stmt->execute(['room_code' => $room_code]);
 
+    // Automatically add the room creator as an admin participant
+    $creator_name = $_POST['creator_name']; // Getting the name of the room creator
+
+    $stmt = $pdo->prepare("INSERT INTO participants (room_code, name, status) VALUES (:room_code, :name, 'admin')");
+    $stmt->execute(['room_code' => $room_code, 'name' => $creator_name]);
+
     header("Location: room_page.php?room_code=$room_code");
     exit();
 }
@@ -27,6 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="container">
         <h1>Create Secret Santa Room</h1>
         <form method="POST">
+            <div class="mb-3">
+                <label for="creator_name" class="form-label">Your Name</label>
+                <input type="text" class="form-control" id="creator_name" name="creator_name" required>
+            </div>
             <button type="submit" class="btn btn-primary">Create Room</button>
         </form>
     </div>

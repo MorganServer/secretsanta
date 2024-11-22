@@ -21,6 +21,15 @@ $participant_names = array_column($participants, 'name');
 if (!isset($_SESSION['name'])) {
     $_SESSION['name'] = ''; // If not set, default it
 }
+
+// Check if the current user is an admin
+$is_admin = false;
+foreach ($participants as $participant) {
+    if ($participant['name'] == $_SESSION['name'] && $participant['status'] == 'admin') {
+        $is_admin = true;
+    }
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -42,16 +51,16 @@ if (!isset($_SESSION['name'])) {
         <h3>Participants:</h3>
         <ul class="list-group">
             <?php foreach ($participants as $participant): ?>
-                <li class="list-group-item"><?= $participant['name'] ?></li>
+                <li class="list-group-item"><?= $participant['name'] ?> (<?= ucfirst($participant['status']) ?>)</li>
             <?php endforeach; ?>
         </ul>
 
         <?php if ($all_joined): ?>
             <h4>All participants have joined. Ready to start the selection!</h4>
-            <?php if ($_SESSION['name']): ?>
-                <!-- Only show "Pick Selection" for the current user -->
-                <form method="POST" action="pick_name.php">
-                    <button type="submit" class="btn btn-success mt-3">Pick Selection</button>
+            <?php if ($is_admin): ?>
+                <!-- Only show the "Start Selection" button for the admin -->
+                <form method="POST" action="start_game.php">
+                    <button type="submit" class="btn btn-success mt-3">Start Selection</button>
                 </form>
             <?php endif; ?>
         <?php else: ?>

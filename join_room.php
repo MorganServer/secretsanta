@@ -9,15 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $roomCode = $_POST['room_code'];
     $name = $_POST['name'];
 
-    // Check if room code exists
-    $result = $conn->query("SELECT * FROM rooms WHERE room_code = '$roomCode'");
-    if ($result->num_rows > 0) {
-        // Get the total participants count for turn order
-        $turnOrder = $conn->query("SELECT COUNT(*) AS total FROM participants WHERE room_code = '$roomCode'")->fetch_assoc()['total'] + 1;
+    // Check if the room exists
+    $stmt = $conn->prepare("SELECT * FROM rooms WHERE room_code = ?");
+    $stmt->bind_param("s", $roomCode);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-        // Insert participant into the database
+    if ($result->num_rows > 0) {
+        // Room exists, insert participant
         $stmt = $conn->prepare("INSERT INTO participants (room_code, name, turn_order) VALUES (?, ?, ?)");
-        $stmt->bind_param("ssi", $roomCode, $name, $turnOrder);
+        $stmt->bind_param("ssi", $roomCode, $name, 0); // Default turn_order to 0
         $stmt->execute();
 
         $_SESSION['room_code'] = $roomCode;
@@ -26,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: room_page.php?room_code=$roomCode");
         exit();
     } else {
-        $error = "Room code does not exist!";
+        $error = "Room not found!";
     }
 }
 ?>
@@ -42,10 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <div class="container my-5">
         <h1 class="text-center">Join a Secret Santa Room</h1>
-        <?php if (isset($error)): ?>
-            <div class="alert alert-danger"><?php echo $error; ?></div>
-        <?php endif; ?>
-        <form method="POST">
+        <?php if (isset($error)) { echo "<div class='alert alert-danger'>$error</div>"; } ?>
+        <form method="POST" action="join_room.php">
             <div class="mb-3">
                 <label for="room_code" class="form-label">Room Code</label>
                 <input type="text" id="room_code" name="room_code" class="form-control" required>
@@ -57,5 +56,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="btn btn-success btn-block">Join Room</button>
         </form>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

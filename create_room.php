@@ -6,17 +6,15 @@ if ($conn->connect_error) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Generate a random 6-character room code
-    $roomCode = strtoupper(bin2hex(random_bytes(3)));
+    $roomCode = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));  // Generate a unique room code
+    $roomName = $_POST['room_name'];
 
-    // Create the room
-    $stmt = $conn->prepare("INSERT INTO rooms (room_code) VALUES (?)");
-    $stmt->bind_param("s", $roomCode);
+    // Insert room into database
+    $stmt = $conn->prepare("INSERT INTO rooms (room_code, room_name) VALUES (?, ?)");
+    $stmt->bind_param("ss", $roomCode, $roomName);
     $stmt->execute();
 
     $_SESSION['room_code'] = $roomCode;
-
-    // Redirect to the room page
     header("Location: room_page.php?room_code=$roomCode");
     exit();
 }
@@ -33,9 +31,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <div class="container my-5">
         <h1 class="text-center">Create a Secret Santa Room</h1>
-        <form method="POST">
+        <form method="POST" action="create_room.php">
+            <div class="mb-3">
+                <label for="room_name" class="form-label">Room Name</label>
+                <input type="text" id="room_name" name="room_name" class="form-control" required>
+            </div>
             <button type="submit" class="btn btn-primary btn-block">Create Room</button>
         </form>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -15,16 +15,15 @@ while ($row = $result->fetch_assoc()) {
     $participants[] = $row;
 }
 
-// Get the current turn (from session or database)
+// Get the current turn
 $stmt = $conn->prepare("SELECT current_turn FROM rooms WHERE room_code = ?");
 $stmt->bind_param("s", $roomCode);
 $stmt->execute();
 $currentTurnResult = $stmt->get_result();
 $currentTurn = $currentTurnResult->fetch_assoc()['current_turn'];
 
-// Check if the current user is the one whose turn it is
+// Check if it's the user's turn
 $isMyTurn = $userName == $currentTurn;
-
 ?>
 
 <!DOCTYPE html>
@@ -48,7 +47,14 @@ $isMyTurn = $userName == $currentTurn;
             <?php endforeach; ?>
         </div>
 
-        <!-- Show Pick My Secret Santa Button if it's the user's turn -->
+        <!-- Start Game Button -->
+        <?php if ($_SESSION['user_name'] == $participants[0]['name']): ?>
+            <form action="start_game.php" method="POST">
+                <button type="submit" class="btn btn-primary btn-block">Start Game</button>
+            </form>
+        <?php endif; ?>
+
+        <!-- Show "Pick my Secret Santa" button if it's the user's turn -->
         <?php if ($isMyTurn): ?>
             <div class="text-center mt-3">
                 <button id="pickButton" class="btn btn-success">Pick my Secret Santa</button>
@@ -57,7 +63,6 @@ $isMyTurn = $userName == $currentTurn;
         <?php else: ?>
             <p class="text-warning">Waiting for <?php echo $currentTurn; ?>'s turn...</p>
         <?php endif; ?>
-        
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -76,14 +81,12 @@ $isMyTurn = $userName == $currentTurn;
             })
             .then(response => response.json())
             .then(data => {
-                // Show the name they picked
                 document.getElementById("pickedName").innerText = "You got " + data.picked_name;
-                // Disable the pick button
                 document.getElementById("pickButton").disabled = true;
 
-                // Redirect to the next turn (this can be a page refresh or an automatic update in your case)
+                // Refresh page after 1 second to show the next person
                 setTimeout(function() {
-                    location.reload(); // Refresh the page to move to the next turn
+                    location.reload();
                 }, 1000);
             })
             .catch(error => console.log('Error picking Secret Santa:', error));

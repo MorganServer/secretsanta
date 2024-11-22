@@ -1,19 +1,14 @@
 <?php
-session_start();
-$conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+include 'db.php';
+
+if (isset($_GET['room_id'])) {
+    $room_id = $_GET['room_id'];
+
+    // Fetch participants with assigned names
+    $stmt = $pdo->prepare("SELECT * FROM participants WHERE room_id = ?");
+    $stmt->execute([$room_id]);
+    $participants = $stmt->fetchAll();
 }
-
-$roomCode = $_SESSION['room_code'];
-
-// Get all participants and their picks
-$result = $conn->query("SELECT name, picked_name FROM participants WHERE room_code = '$roomCode'");
-$participants = [];
-while ($row = $result->fetch_assoc()) {
-    $participants[] = $row;
-}
-
 ?>
 
 <!DOCTYPE html>
@@ -21,23 +16,18 @@ while ($row = $result->fetch_assoc()) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secret Santa Results</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container my-5">
-        <h1 class="text-center">Secret Santa Results</h1>
+    <div class="container mt-5">
+        <h2>Results: Secret Santa Pairs</h2>
 
-        <div class="row">
+        <ul class="list-group">
             <?php foreach ($participants as $participant): ?>
-                <div class="col-md-4 text-center">
-                    <h3><?php echo $participant['name']; ?></h3>
-                    <p>Picked: <?php echo $participant['picked_name']; ?></p>
-                </div>
+                <li class="list-group-item"><?= htmlspecialchars($participant['name']) ?> -> <?= htmlspecialchars($participant['assigned_name']) ?></li>
             <?php endforeach; ?>
-        </div>
-
-        <a href="room_page.php?room_code=<?php echo $roomCode; ?>" class="btn btn-primary btn-block mt-4">Back to Room</a>
+        </ul>
     </div>
 </body>
 </html>

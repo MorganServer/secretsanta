@@ -73,4 +73,8 @@ while ($row = $result->fetch_assoc()) {
     </ul>
     <button id="start-btn" onclick="startGame()">Start Game</button>
     <div id="game-controls" style="display: none;">
-        <h3>Current Player: <span
+        <h3>Current Player: <span id="current-player"></span></h3>
+        <button onclick="pickName()">Pick a Name for Me</button>
+    </div>
+</body>
+</html>

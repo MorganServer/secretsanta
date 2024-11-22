@@ -4,11 +4,6 @@ include 'db.php';
 
 $room_code = $_GET['room_code'];
 
-// Store the participant's name in session (when joining)
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $_SESSION['name'] = $_POST['name']; // Set participant name in session
-}
-
 // Fetch the participants for this room
 $stmt = $pdo->prepare("SELECT * FROM participants WHERE room_code = :room_code");
 $stmt->execute(['room_code' => $room_code]);

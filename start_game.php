@@ -2,12 +2,6 @@
 session_start();
 include 'db.php';
 
-// Check if the user is logged in (i.e., has a name in the session)
-if (!isset($_SESSION['name'])) {
-    header('Location: join_room.php');
-    exit();
-}
-
 $room_code = $_GET['room_code'];
 $participant_name = $_SESSION['name'];
 

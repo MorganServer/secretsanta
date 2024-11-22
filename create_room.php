@@ -1,4 +1,6 @@
 <?php
+session_start();
+
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
@@ -14,9 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute();
 
     // Auto-join the creator
-    $stmt = $conn->prepare("INSERT INTO participants (room_code, name) VALUES (?, ?)");
-    $stmt->bind_param("ss", $roomCode, $creatorName);
+    $stmt = $conn->prepare("INSERT INTO participants (room_code, name, family_group) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $roomCode, $creatorName, $creatorName); // Creator's name is their family group
     $stmt->execute();
+
+    $_SESSION['user_name'] = $creatorName;
+    $_SESSION['room_code'] = $roomCode;
 
     header("Location: room_page.php?room_code=$roomCode");
     exit();
@@ -29,16 +34,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Room</title>
-    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <h1>Create a Secret Santa Room</h1>
-        <form method="POST">
-            <label for="creator_name">Your Name:</label>
-            <input type="text" id="creator_name" name="creator_name" required>
-            <button type="submit">Create Room</button>
+    <div class="container my-5">
+        <h1 class="text-center">Create a Secret Santa Room</h1>
+        <form method="POST" action="create_room.php">
+            <div class="mb-3">
+                <label for="creator_name" class="form-label">Your Name</label>
+                <input type="text" id="creator_name" name="creator_name" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Create Room</button>
         </form>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -1,54 +1,51 @@
 <?php
 session_start();
-
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
 $roomCode = $_GET['room_code'] ?? '';
-$currentPlayer = $_SESSION['user_name'] ?? '';
 
-if (empty($roomCode) || empty($currentPlayer)) {
-    die("Room code and player are required");
+if (empty($roomCode)) {
+    die("Room code is required");
 }
 
-// Get participants
-$result = $conn->query("SELECT * FROM participants WHERE room_code = '$roomCode' ORDER BY turn_order ASC");
+// Fetch participants ordered by their turn order
+$stmt = $conn->prepare("SELECT * FROM participants WHERE room_code = ? ORDER BY turn_order ASC");
+$stmt->bind_param("s", $roomCode);
+$stmt->execute();
+$participantsResult = $stmt->get_result();
 $participants = [];
-while ($row = $result->fetch_assoc()) {
+
+while ($row = $participantsResult->fetch_assoc()) {
     $participants[] = $row;
 }
 
-// Get the current player's turn from session
-$turnIndex = $_SESSION['turn_index'] ?? 0;
-$nextPlayer = $participants[$turnIndex]['name'];
+// Check if it's the current user's turn
+$currentTurnIndex = $_SESSION['turn_index'] ?? 0;
+$currentParticipant = $participants[$currentTurnIndex] ?? null;
 
-// Check if it's the current player's turn
-$canPick = $currentPlayer === $nextPlayer;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $currentParticipant) {
+    // Randomly assign a name for the current participant
+    $availableParticipants = array_filter($participants, function($p) use ($currentParticipant) {
+        return $p['name'] !== $currentParticipant['name'] && $p['picked_name'] === null;
+    });
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canPick) {
-    // Pick a random name (excluding self and already picked)
-    $picked = $_POST['picked'] ?? [];
-    $validNames = array_diff(array_column($participants, 'name'), $picked, [$currentPlayer]);
+    $randomIndex = array_rand($availableParticipants);
+    $pickedParticipant = $availableParticipants[$randomIndex];
 
-    if (empty($validNames)) {
-        die("No valid names left.");
-    }
-
-    $selectedName = $validNames[array_rand($validNames)];
-
-    // Save the result
-    $stmt = $conn->prepare("INSERT INTO results (room_code, giver, receiver) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $roomCode, $currentPlayer, $selectedName);
+    $stmt = $conn->prepare("UPDATE participants SET picked_name = ? WHERE id = ?");
+    $stmt->bind_param("si", $pickedParticipant['name'], $currentParticipant['id']);
     $stmt->execute();
 
-    // Update turn index for the next player
-    $_SESSION['turn_index'] = ($turnIndex + 1) % count($participants);
+    // Move to next participant's turn
+    $_SESSION['turn_index']++;
 
-    // Redirect to the same page to update the game state
-    header("Location: pick_name.php?room_code=$roomCode");
-    exit();
+    if ($_SESSION['turn_index'] >= count($participants)) {
+        header("Location: results.php?room_code=$roomCode");
+        exit();
+    }
 }
 
 ?>
@@ -59,33 +56,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canPick) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pick a Name</title>
-    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <h1>Pick a Name</h1>
-
-        <h2>It's <?php echo htmlspecialchars($nextPlayer); ?>'s turn!</h2>
-
-        <?php if ($canPick): ?>
+    <div class="container my-5">
+        <h1 class="text-center">Pick a Name</h1>
+        <?php if ($currentParticipant): ?>
+            <h3><?php echo htmlspecialchars($currentParticipant['name']); ?>, choose a name!</h3>
             <form method="POST">
-                <button type="submit" name="pick_for_me">Pick for Me</button>
+                <button type="submit" class="btn btn-primary btn-block">Pick a Name</button>
             </form>
-        <?php else: ?>
-            <p>Wait for your turn!</p>
         <?php endif; ?>
-
-        <div id="picked-names">
-            <h3>Picked Names:</h3>
-            <ul>
-                <?php
-                $result = $conn->query("SELECT * FROM results WHERE room_code = '$roomCode'");
-                while ($row = $result->fetch_assoc()):
-                ?>
-                    <li><?php echo htmlspecialchars($row['giver']); ?> picked <?php echo htmlspecialchars($row['receiver']); ?></li>
-                <?php endwhile; ?>
-            </ul>
-        </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

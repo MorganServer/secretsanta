@@ -8,21 +8,25 @@ if ($conn->connect_error) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $roomCode = $_POST['room_code'];
-    $name = $_POST['name'];
+    $names = explode(',', $_POST['names']); // Split names by commas
+    $names = array_map('trim', $names); // Trim whitespace
 
-    // Join the room
-    $stmt = $conn->prepare("INSERT INTO participants (room_code, name, family_group) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $roomCode, $name, $name); // Assume each person is their own family group
-    $stmt->execute();
+    foreach ($names as $name) {
+        if (!empty($name)) {
+            // Join each name into the room
+            $stmt = $conn->prepare("INSERT INTO participants (room_code, name) VALUES (?, ?)");
+            $stmt->bind_param("ss", $roomCode, $name);
+            $stmt->execute();
+        }
+    }
 
-    // Store user session
-    $_SESSION['user_name'] = $name;
+    // Set session for the last entered name as the main user
+    $_SESSION['user_name'] = end($names);
 
     header("Location: room_page.php?room_code=$roomCode");
     exit();
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -30,14 +34,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join Room</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h2>Join a Room</h2>
-    <form method="POST">
-        <label>Room Code: <input type="text" name="room_code" value="<?php echo $_GET['room_code'] ?? ''; ?>" required></label><br>
-        <label>Family Group: <input type="text" name="family_group" required></label><br>
-        <label>Names (comma-separated): <input type="text" name="names" required></label><br>
-        <button type="submit">Join</button>
-    </form>
+    <div class="container">
+        <h1>Join a Secret Santa Room</h1>
+        <form method="POST">
+            <div class="form-group">
+                <label for="room_code">Room Code:</label>
+                <input type="text" id="room_code" name="room_code" value="<?php echo htmlspecialchars($_GET['room_code'] ?? ''); ?>" required>
+            </div>
+            <div class="form-group">
+                <label for="names">Names (comma-separated):</label>
+                <input type="text" id="names" name="names" placeholder="e.g., Garrett, Jane, Sarah" required>
+            </div>
+            <button type="submit">Join</button>
+        </form>
+    </div>
 </body>
 </html>

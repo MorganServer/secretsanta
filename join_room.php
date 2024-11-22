@@ -31,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Room exists, proceed with joining the room
         echo "Room found, now inserting participant.<br>";
 
-        // Insert participant into the participants table with NULL for picked_name and turn_order
-        $stmt = $conn->prepare("INSERT INTO participants (room_code, name, picked_name, turn_order) VALUES (?, ?, NULL, NULL)");
+        // Insert participant into the participants table with default value for turn_order
+        $stmt = $conn->prepare("INSERT INTO participants (room_code, name, picked_name, turn_order) VALUES (?, ?, NULL, 0)");
         $stmt->bind_param("ss", $roomCode, $name);
 
         if ($stmt->execute()) {

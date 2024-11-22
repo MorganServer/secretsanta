@@ -6,21 +6,57 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Get room code and current user
-$roomCode = $_GET['room_code'];
-$currentUser = $_SESSION['user_name'] ?? null;
+$roomCode = $_GET['room_code'] ?? '';
 
-// Fetch participants
+if (empty($roomCode)) {
+    die("Room code is required");
+}
+
+// Get all participants and their picked status
 $result = $conn->query("SELECT * FROM participants WHERE room_code = '$roomCode'");
 $participants = [];
 while ($row = $result->fetch_assoc()) {
     $participants[] = $row;
 }
 
-// Fetch current turn
-$result = $conn->query("SELECT current_turn FROM rooms WHERE room_code = '$roomCode'");
-$currentTurn = $result->fetch_assoc()['current_turn'] ?? null;
+// Get picked participants
+$result = $conn->query("SELECT receiver FROM results WHERE room_code = '$roomCode'");
+$picked = [];
+while ($row = $result->fetch_assoc()) {
+    $picked[] = $row['receiver'];
+}
 
+// Get the current player's turn from session
+$currentPlayer = $_SESSION['user_name'] ?? '';
+
+// Get the next person who hasn't picked yet
+$remainingPlayers = array_diff(array_column($participants, 'name'), $picked);
+$nextPlayer = current($remainingPlayers);
+
+// Determine if the current player can pick
+$canPick = $currentPlayer === $nextPlayer;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pick_for_me']) && $canPick) {
+    $player = $currentPlayer;
+
+    // Get valid names for the current player (excluding self and already picked)
+    $validNames = array_diff(array_column($participants, 'name'), $picked, [$player]);
+
+    if (empty($validNames)) {
+        die("No valid names left");
+    }
+
+    $selectedName = $validNames[array_rand($validNames)];
+
+    // Save the result
+    $stmt = $conn->prepare("INSERT INTO results (room_code, giver, receiver) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $roomCode, $player, $selectedName);
+    $stmt->execute();
+
+    // Redirect to the same page to update the game state
+    header("Location: room_page.php?room_code=$roomCode");
+    exit();
+}
 ?>
 
 <!DOCTYPE html>
@@ -28,78 +64,42 @@ $currentTurn = $result->fetch_assoc()['current_turn'] ?? null;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Room - <?php echo $roomCode; ?></title>
+    <title>Secret Santa Room</title>
     <link rel="stylesheet" href="styles.css">
-    <script>
-        let roomCode = '<?php echo $roomCode; ?>';
-
-        function checkTurn() {
-            fetch(`get_turn.php?room_code=${roomCode}`)
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('current-turn-display').innerText = data.current_turn;
-            });
-        }
-
-        setInterval(checkTurn, 2000); // Poll every 2 seconds
-    </script>
 </head>
 <body>
     <div class="container">
-        <h1>Room: <?php echo $roomCode; ?></h1>
-        <h3>Participants</h3>
-        <ul>
-            <?php foreach ($participants as $participant): ?>
-                <li><?php echo $participant['name']; ?></li>
-            <?php endforeach; ?>
-        </ul>
+        <h1>Welcome to the Secret Santa Room</h1>
 
-        <h3>Current Turn: <span id="current-turn-display"><?php echo $currentTurn; ?></span></h3>
+        <div id="participants">
+            <h3>Participants:</h3>
+            <ul>
+                <?php foreach ($participants as $participant): ?>
+                    <li><?php echo htmlspecialchars($participant['name']); ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
 
-        <!-- "Pick" button only visible for the current player -->
-        <?php if ($currentTurn === $currentUser): ?>
-            <button id="pick-button" onclick="pickName()">Pick for Me</button>
-        <?php else: ?>
-            <p>Waiting for <?php echo $currentTurn; ?> to pick a name...</p>
-        <?php endif; ?>
+        <div id="turn-info">
+            <h3>It's <?php echo htmlspecialchars($nextPlayer); ?>'s turn!</h3>
 
-        <button id="start-button" onclick="startGame()">Start Game</button>
+            <?php if ($canPick): ?>
+                <form method="POST">
+                    <button type="submit" name="pick_for_me">Pick for Me</button>
+                </form>
+            <?php else: ?>
+                <p>Wait for your turn!</p>
+            <?php endif; ?>
+        </div>
+        
+        <div id="picked-names">
+            <h3>Picked Names:</h3>
+            <ul>
+                <?php foreach ($picked as $name): ?>
+                    <li><?php echo htmlspecialchars($name['receiver']); ?> has been picked.</li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
     </div>
-
-    <script>
-        function startGame() {
-            fetch('start_game.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_code: roomCode })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.current_turn) {
-                    alert(`Game started! It's ${data.current_turn}'s turn.`);
-                    location.reload();
-                } else {
-                    alert('Error starting game.');
-                }
-            });
-        }
-
-        function pickName() {
-            fetch('pick_name.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_code: roomCode, player: '<?php echo $currentUser; ?>' })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    alert(data.error);
-                } else {
-                    alert(`You picked: ${data.name}`);
-                    location.reload();
-                }
-            });
-        }
-    </script>
 </body>
 </html>

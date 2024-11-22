@@ -2,7 +2,7 @@
 $host = 'localhost';
 $db = 'secretsanta'; // Replace with your database name
 $user = 'dbadmin'; // Replace with your database username
-$pass = 'DBadmin1231'; // Replace with your database password
+$pass = 'DBadmin123!'; // Replace with your database password
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$db", $user, $pass);

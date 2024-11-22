@@ -5,34 +5,42 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-$roomCode = $_SESSION['room_code'];
+$roomCode = $_POST['room_code'];
 
-// Get participants and shuffle them
+// Get all participants in the room
 $result = $conn->query("SELECT id, name FROM participants WHERE room_code = '$roomCode' ORDER BY turn_order ASC");
 $participants = [];
 while ($row = $result->fetch_assoc()) {
     $participants[] = $row;
 }
 
+// Shuffle participants to randomize the order
 shuffle($participants);
 
-// Assign picks
+// Now assign each person a random name, ensuring no one picks themselves
 $pickAssignments = [];
 for ($i = 0; $i < count($participants); $i++) {
-    $pickAssignments[$participants[$i]['id']] = $participants[($i + 1) % count($participants)]['name'];
-}
+    $currentId = $participants[$i]['id'];
+    $nextParticipant = $participants[($i + 1) % count($participants)]; // Get the next participant in the array, wrap around to the start
 
-// Update participants with picked names
-foreach ($pickAssignments as $id => $pickedName) {
+    // Ensure no one picks themselves
+    if ($nextParticipant['id'] == $currentId) {
+        $nextParticipant = $participants[($i + 2) % count($participants)]; // Skip to the next participant
+    }
+
+    $pickAssignments[$currentId] = $nextParticipant['name'];
+
+    // Update the 'picked_name' in the database for the current participant
     $stmt = $conn->prepare("UPDATE participants SET picked_name = ? WHERE id = ?");
-    $stmt->bind_param("si", $pickedName, $id);
+    $stmt->bind_param("si", $nextParticipant['name'], $currentId);
     $stmt->execute();
 }
 
-// Update current turn to the first player
+// Update the current turn to the first person (first turn in shuffled list)
 $stmt = $conn->prepare("UPDATE rooms SET current_turn = ? WHERE room_code = ?");
 $stmt->bind_param("ss", $participants[0]['name'], $roomCode);
 $stmt->execute();
 
+// Optionally, you can send the result back to the client or display it in the next page
 echo json_encode(['success' => true, 'pick_assignments' => $pickAssignments]);
 ?>

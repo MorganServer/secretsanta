@@ -46,7 +46,9 @@ if (count($participants) > 1) {
         </div>
 
         <?php if ($allJoined): ?>
+            <!-- Form to start the game -->
             <form action="start_game.php" method="POST">
+                <input type="hidden" name="room_code" value="<?php echo $roomCode; ?>">
                 <button type="submit" class="btn btn-primary btn-block">Start Game</button>
             </form>
         <?php else: ?>

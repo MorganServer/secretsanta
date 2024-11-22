@@ -1,75 +1,38 @@
 <?php
-// Enable error reporting for debugging purposes
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
-header('Content-Type: application/json');
-
-// Database connection
+session_start();
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
-    echo json_encode(['error' => 'Database connection failed']);
-    exit();
+    die("Connection failed: " . $conn->connect_error);
 }
 
-// Get the room code from the POST data
-$data = json_decode(file_get_contents('php://input'), true);
-$roomCode = $data['room_code'];
+$roomCode = $_SESSION['room_code'];
 
-// Check if there is an even number of participants
-$result = $conn->query("SELECT COUNT(*) AS participant_count FROM participants WHERE room_code = '$roomCode'");
-$participantCount = $result->fetch_assoc()['participant_count'];
-
-if ($participantCount % 2 != 0) {
-    echo json_encode(['error' => 'There must be an even number of participants to start the game.']);
-    exit();
-}
-
-// Get the list of participants in the desired order
-$participantsResult = $conn->query("SELECT id, name FROM participants WHERE room_code = '$roomCode' ORDER BY turn_order ASC");
+// Get participants and shuffle them
+$result = $conn->query("SELECT id, name FROM participants WHERE room_code = '$roomCode' ORDER BY turn_order ASC");
 $participants = [];
-
-while ($row = $participantsResult->fetch_assoc()) {
+while ($row = $result->fetch_assoc()) {
     $participants[] = $row;
 }
 
-// Shuffle the list of participants to randomize the pairing
 shuffle($participants);
 
-// Prepare the list of names to assign randomly
-$namesToPick = array_map(function ($participant) {
-    return $participant['name'];
-}, $participants);
-
-// Assign names to each participant, making sure no one picks themselves
+// Assign picks
 $pickAssignments = [];
-foreach ($participants as $index => $participant) {
-    // Get the list of names left for picking (excluding the current participant's name)
-    $namesLeft = array_diff($namesToPick, [$participant['name']]);
-
-    // Randomly pick a name from the remaining names
-    $pickedName = $namesLeft[array_rand($namesLeft)];
-
-    // Store the pick assignment
-    $pickAssignments[$participant['id']] = $pickedName;
-
-    // Remove the picked name from the list to ensure no one is picked twice
-    $namesToPick = array_diff($namesToPick, [$pickedName]);
+for ($i = 0; $i < count($participants); $i++) {
+    $pickAssignments[$participants[$i]['id']] = $participants[($i + 1) % count($participants)]['name'];
 }
 
-// Update the database with the pick assignments
-foreach ($pickAssignments as $participantId => $pickedName) {
+// Update participants with picked names
+foreach ($pickAssignments as $id => $pickedName) {
     $stmt = $conn->prepare("UPDATE participants SET picked_name = ? WHERE id = ?");
-    $stmt->bind_param("si", $pickedName, $participantId);
+    $stmt->bind_param("si", $pickedName, $id);
     $stmt->execute();
 }
 
-// Set the current turn to the first participant
-$firstParticipant = $participants[0]['name'];
+// Update current turn to the first player
 $stmt = $conn->prepare("UPDATE rooms SET current_turn = ? WHERE room_code = ?");
-$stmt->bind_param("ss", $firstParticipant, $roomCode);
+$stmt->bind_param("ss", $participants[0]['name'], $roomCode);
 $stmt->execute();
 
-// Respond with success and the name of the first participant
-echo json_encode(['current_turn' => $firstParticipant, 'pick_assignments' => $pickAssignments]);
+echo json_encode(['success' => true, 'pick_assignments' => $pickAssignments]);
 ?>

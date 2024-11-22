@@ -8,14 +8,11 @@
 </head>
 <body>
     <div class="container my-5">
-        <h1 class="text-center">Welcome to Secret Santa!</h1>
-        <div class="row justify-content-center">
-            <div class="col-md-4">
-                <a href="create_room.php" class="btn btn-primary btn-block mb-3">Create Room</a>
-                <a href="join_room.php" class="btn btn-success btn-block">Join Room</a>
-            </div>
+        <h1 class="text-center">Secret Santa</h1>
+        <div class="d-flex justify-content-center">
+            <a href="create_room.php" class="btn btn-primary mx-3">Create Room</a>
+            <a href="join_room.php" class="btn btn-success mx-3">Join Room</a>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

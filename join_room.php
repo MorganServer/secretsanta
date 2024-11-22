@@ -1,52 +1,32 @@
 <?php
 session_start();
-
-// Database connection
 $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $roomCode = $_POST['room_code'];
     $name = $_POST['name'];
 
-    // Debugging: Output room code and name to check if they are received correctly
-    echo "Room Code: $roomCode<br>";
-    echo "Name: $name<br>";
+    // Check if room code exists
+    $result = $conn->query("SELECT * FROM rooms WHERE room_code = '$roomCode'");
+    if ($result->num_rows > 0) {
+        // Get the total participants count for turn order
+        $turnOrder = $conn->query("SELECT COUNT(*) AS total FROM participants WHERE room_code = '$roomCode'")->fetch_assoc()['total'] + 1;
 
-    // Check if the room exists
-    $stmt = $conn->prepare("SELECT * FROM rooms WHERE room_code = ?");
-    $stmt->bind_param("s", $roomCode);
-    $stmt->execute();
-    $result = $stmt->get_result();
+        // Insert participant into the database
+        $stmt = $conn->prepare("INSERT INTO participants (room_code, name, turn_order) VALUES (?, ?, ?)");
+        $stmt->bind_param("ssi", $roomCode, $name, $turnOrder);
+        $stmt->execute();
 
-    // Debugging: Check if the room exists
-    if ($result->num_rows == 0) {
-        // Room doesn't exist
-        echo "Room code not found in the database.<br>";
-        $error = "Room code not found. Please check the code and try again.";
+        $_SESSION['room_code'] = $roomCode;
+        $_SESSION['user_name'] = $name;
+
+        header("Location: room_page.php?room_code=$roomCode");
+        exit();
     } else {
-        // Room exists, proceed with joining the room
-        echo "Room found, now inserting participant.<br>";
-
-        // Insert participant into the participants table with default value for turn_order
-        $stmt = $conn->prepare("INSERT INTO participants (room_code, name, picked_name, turn_order) VALUES (?, ?, NULL, 0)");
-        $stmt->bind_param("ss", $roomCode, $name);
-
-        if ($stmt->execute()) {
-            echo "Participant inserted successfully.<br>";
-            $_SESSION['user_name'] = $name;
-            $_SESSION['room_code'] = $roomCode;
-
-            // Redirect to the room page
-            header("Location: room_page.php?room_code=$roomCode");
-            exit();
-        } else {
-            echo "Error inserting participant: " . $stmt->error . "<br>";
-            $error = "An error occurred while joining the room. Please try again.";
-        }
+        $error = "Room code does not exist!";
     }
 }
 ?>
@@ -56,52 +36,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Join Room - Secret Santa</title>
+    <title>Join Room</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #f4f4f9;
-            padding-top: 50px;
-        }
-        .container {
-            max-width: 500px;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        .btn-success {
-            width: 100%;
-        }
-        .alert {
-            margin-top: 20px;
-        }
-    </style>
 </head>
 <body>
-
-<div class="container">
-    <h1 class="text-center mb-4">Join a Secret Santa Room</h1>
-
-    <?php if (isset($error)) : ?>
-        <div class="alert alert-danger" role="alert">
-            <?php echo htmlspecialchars($error); ?>
-        </div>
-    <?php endif; ?>
-
-    <form method="POST" action="join_room.php">
-        <div class="mb-3">
-            <label for="room_code" class="form-label">Room Code</label>
-            <input type="text" id="room_code" name="room_code" class="form-control" required>
-        </div>
-        <div class="mb-3">
-            <label for="name" class="form-label">Your Name</label>
-            <input type="text" id="name" name="name" class="form-control" required>
-        </div>
-        <button type="submit" class="btn btn-success">Join Room</button>
-    </form>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="container my-5">
+        <h1 class="text-center">Join a Secret Santa Room</h1>
+        <?php if (isset($error)): ?>
+            <div class="alert alert-danger"><?php echo $error; ?></div>
+        <?php endif; ?>
+        <form method="POST">
+            <div class="mb-3">
+                <label for="room_code" class="form-label">Room Code</label>
+                <input type="text" id="room_code" name="room_code" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="name" class="form-label">Your Name</label>
+                <input type="text" id="name" name="name" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-success btn-block">Join Room</button>
+        </form>
+    </div>
 </body>
 </html>

@@ -6,11 +6,11 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Get participant names
+// Fetch room participants
 $result = $conn->query("SELECT name FROM participants WHERE room_code = '$roomCode'");
-$names = [];
+$participants = [];
 while ($row = $result->fetch_assoc()) {
-    $names[] = $row['name'];
+    $participants[] = $row['name'];
 }
 ?>
 
@@ -19,62 +19,50 @@ while ($row = $result->fetch_assoc()) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Room Page</title>
+    <title>Room: <?php echo $roomCode; ?></title>
+    <link rel="stylesheet" href="styles.css">
     <script>
-        let names = <?php echo json_encode($names); ?>;
-        let currentIndex = 0;
+        const roomCode = "<?php echo $roomCode; ?>";
 
-        function startGame() {
-            document.getElementById('current-player').innerText = names[currentIndex];
-            document.getElementById('game-controls').style.display = 'block';
-            document.getElementById('start-btn').style.display = 'none';
+        function refreshParticipants() {
+            fetch(`refresh_participants.php?room_code=${roomCode}`)
+                .then(response => response.json())
+                .then(data => {
+                    const participantList = document.getElementById('participant-list');
+                    participantList.innerHTML = '';
+                    data.participants.forEach(name => {
+                        const li = document.createElement('li');
+                        li.textContent = name;
+                        participantList.appendChild(li);
+                    });
+
+                    // Check if even number of participants
+                    const startButton = document.getElementById('start-btn');
+                    if (data.participants.length % 2 === 0) {
+                        startButton.disabled = false;
+                    } else {
+                        startButton.disabled = true;
+                    }
+                });
         }
 
-        function pickName() {
-    let playerName = document.getElementById('current-player').innerText;
-
-    fetch('pick_name.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            room_code: '<?php echo $roomCode; ?>',
-            player: playerName,
-        }),
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert("Error: " + data.error);
-            } else {
-                alert(playerName + " picked: " + data.name);
-                // Proceed to the next player
-                currentIndex++;
-                if (currentIndex < names.length) {
-                    document.getElementById('current-player').innerText = names[currentIndex];
-                } else {
-                    alert("Game finished! Check final results.");
-                    location.href = 'results.php?room_code=<?php echo $roomCode; ?>';
-                }
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-            alert("An error occurred. Please try again.");
-        });
-}
-
+        setInterval(refreshParticipants, 3000); // Refresh every 3 seconds
     </script>
 </head>
 <body>
-    <h2>Room: <?php echo $roomCode; ?></h2>
-    <h3>Participants in the Hat:</h3>
-    <ul>
-        <?php foreach ($names as $name) { echo "<li>$name</li>"; } ?>
-    </ul>
-    <button id="start-btn" onclick="startGame()">Start Game</button>
-    <div id="game-controls" style="display: none;">
-        <h3>Current Player: <span id="current-player"></span></h3>
-        <button onclick="pickName()">Pick a Name for Me</button>
+    <div class="container">
+        <h1>Room: <?php echo $roomCode; ?></h1>
+        <h2>Participants:</h2>
+        <ul id="participant-list">
+            <?php foreach ($participants as $name) { echo "<li>$name</li>"; } ?>
+        </ul>
+        <button id="start-btn" onclick="startGame()" disabled>Start Game</button>
+        <form method="POST" action="join_room.php">
+            <input type="hidden" name="room_code" value="<?php echo $roomCode; ?>">
+            <label for="name">Your Name(s):</label>
+            <input type="text" id="name" name="name" required>
+            <button type="submit">Join Room</button>
+        </form>
     </div>
 </body>
 </html>

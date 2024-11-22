@@ -1,38 +1,24 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+$conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $roomName = $_POST['room_name'] ?? null; // Added null check for safety
-    $maxParticipants = isset($_POST['max_participants']) ? intval($_POST['max_participants']) : 0;
-    $roomCode = substr(md5(uniqid(rand(), true)), 0, 6);
+    $roomCode = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6);
+    $creatorName = $_POST['creator_name'];
 
-    // Validate inputs
-    if (empty($roomName) || $maxParticipants <= 0) {
-        die("Invalid input: Room name and max participants are required.");
-    }
+    // Create the room
+    $stmt = $conn->prepare("INSERT INTO rooms (room_code, created_at) VALUES (?, NOW())");
+    $stmt->bind_param("s", $roomCode);
+    $stmt->execute();
 
-    $conn = new mysqli('localhost', 'dbadmin', 'DBadmin123!', 'secret_santa');
-    if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
-    }
+    // Auto-join the creator
+    $stmt = $conn->prepare("INSERT INTO participants (room_code, name, family_group) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $roomCode, $creatorName, $creatorName); // Creator's name is their family group
+    $stmt->execute();
 
-    $stmt = $conn->prepare("INSERT INTO rooms (room_name, max_participants, room_code) VALUES (?, ?, ?)");
-    if (!$stmt) {
-        die("Preparation failed: " . $conn->error);
-    }
-
-    $stmt->bind_param("sis", $roomName, $maxParticipants, $roomCode);
-    if (!$stmt->execute()) {
-        die("Execution failed: " . $stmt->error);
-    }
-
-    $stmt->close();
-    $conn->close();
-
-    // Redirect to Join Room page with room code
-    header("Location: join_room.php?room_code=" . $roomCode);
+    header("Location: room_page.php?room_code=$roomCode");
     exit();
 }
 ?>
@@ -43,13 +29,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Room</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h2>Create a Room</h2>
-    <form method="POST">
-        <label>Room Name: <input type="text" name="room_name" required></label><br>
-        <label>Max Participants: <input type="number" name="max_participants" required></label><br>
-        <button type="submit">Create</button>
-    </form>
+    <div class="container">
+        <h1>Create a Secret Santa Room</h1>
+        <form method="POST" action="create_room.php">
+            <label for="creator_name">Your Name:</label>
+            <input type="text" id="creator_name" name="creator_name" required>
+            <button type="submit">Create Room</button>
+        </form>
+    </div>
 </body>
 </html>
